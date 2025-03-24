@@ -1,31 +1,37 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "0b253bf4b4ab833bca350474eb8ea6db"
-application_url = "https://example.com/"
+application_url = "https://andrews-brush-tel-mortality.trycloudflare.com"
 embedded = true
 name = "moxy-administrator"
 handle = "moxy-administrator"
 
 [build]
+automatically_update_urls_on_dev = true
+dev_store_url = "test-moxy.myshopify.com"
 include_config_on_deploy = true
 
 [webhooks]
 api_version = "2025-01"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+scopes = "read_customers,read_discounts,read_fulfillments,read_orders,read_products,read_shipping,write_discounts,write_fulfillments,write_orders,write_shipping"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://andrews-brush-tel-mortality.trycloudflare.com/auth/callback",
+  "https://andrews-brush-tel-mortality.trycloudflare.com/auth/shopify/callback",
+  "https://andrews-brush-tel-mortality.trycloudflare.com/api/auth/callback"
+]
 
 [pos]
 embedded = false

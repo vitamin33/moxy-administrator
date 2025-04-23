@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { useLoaderData, useFetcher, Link } from "@remix-run/react";
 import { authenticate, getOrders } from "../shopify.server";
-import { Page, Card, DataTable, Button } from "@shopify/polaris";
+import { Page, Card, Button, IndexTable, useIndexResourceState, Badge } from "@shopify/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -15,43 +15,140 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { orders };
 };
 
+export const action = async ({ request }: LoaderFunctionArgs) => {
+  const { admin } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const orderIds = JSON.parse(formData.get("orderIds") as string);
+
+  for (const id of orderIds) {
+    const response = await admin.graphql(
+      `mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
+        orderMarkAsPaid(input: $input) {
+          order {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          input: {
+            id,
+          },
+        },
+      }
+    );
+  }
+
+  return new Response(JSON.stringify({ status: "done"}), {
+    status: 200,
+  });
+}
+
 export default function OrdersPage() {
   const { orders } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher();
 
   console.log("Client orders:", orders);
 
-  const rows = orders.map(
+  const resourceName = {
+    singular: 'order',
+    plural: 'orders'
+  };
+
+  const {selectedResources, allResourcesSelected, handleSelectionChange} =
+    useIndexResourceState(orders);
+
+  const rowMarkup = orders.map(
     (order: {
+      id: string;
       name: string;
       customer?: { firstName: string };
       totalPriceSet: {
         presentmentMoney: { amount: string; currencyCode: string };
       };
       createdAt: string;
-    }) => [
-      order.name,
-      order.customer?.firstName || "Guest",
-      `${order.totalPriceSet.presentmentMoney.amount} ${order.totalPriceSet.presentmentMoney.currencyCode}`,
-      order.createdAt,
-    ],
+      fullyPaid: boolean;
+      index: number
+    }) => (
+      <IndexTable.Row
+        id={order.id}
+        key={order.id}
+        selected={selectedResources.includes(order.id)}
+        position={order.index}
+      >
+        <IndexTable.Cell>{order.name}</IndexTable.Cell>
+        <IndexTable.Cell>{order.customer?.firstName || "Guest"}</IndexTable.Cell>
+        <IndexTable.Cell>{order.totalPriceSet.presentmentMoney.amount} {order.totalPriceSet.presentmentMoney.currencyCode}</IndexTable.Cell>
+        <IndexTable.Cell>{order.createdAt}</IndexTable.Cell>
+        <IndexTable.Cell>
+          <Badge 
+            progress={order.fullyPaid? "complete" : "incomplete"} 
+            tone={order.fullyPaid? "success" : "attention"}
+          >
+            {order.fullyPaid? "Paid" : "Not Paid"}
+          </Badge>
+        </IndexTable.Cell>
+      </IndexTable.Row>
+    ),
   );
+  
+    const promotedBulkActions = [
+      {
+        content: 'Mark As Paid',
+        onAction: () => {
+          fetcher.submit(
+            { orderIds: JSON.stringify(selectedResources) },
+            {
+              method: "post",
+              action: "/app/orders",
+              encType: "application/x-www-form-urlencoded",
+            }
+          );
+        }
+      },
+    ];
 
-  return (
-    <Page
-      title="Orders"
-      primaryAction={
-        <Link to="/app/orders/create">
-          <Button variant="primary">Create Order</Button>
-        </Link>
-      }
-    >
+    return (
+      <Page
+        title="Orders"
+        primaryAction={
+          <Link to="/app/orders/create">
+            <Button variant="primary">Create Order</Button>
+          </Link>        
+        }
+        secondaryActions={[
+          {
+            content: fetcher.state === "loading" ? "Refreshing..." : "Refresh",
+            onAction: () => {
+              fetcher.load("/app/orders");
+            }
+          }
+        ]}
+      >
       <Card>
-        <DataTable
-          columnContentTypes={["text", "text", "numeric", "text"]}
-          headings={["Order", "Customer", "Total Price", "Created At"]}
-          rows={rows}
-        />
-      </Card>
-    </Page>
-  );
+        <IndexTable
+            resourceName={resourceName}
+            itemCount={orders.length}
+            selectedItemsCount={
+              allResourcesSelected ? 'All' : selectedResources.length
+            }
+            onSelectionChange={handleSelectionChange}
+            headings={[
+              {title: 'Order'},
+              {title: 'Customer'},
+              {title: 'Total'},
+              {title: 'Date'},
+              {title: 'Payment status'},
+            ]}
+            promotedBulkActions={promotedBulkActions}
+          >
+            {rowMarkup}
+          </IndexTable>
+        </Card>
+      </Page>
+    );
 }

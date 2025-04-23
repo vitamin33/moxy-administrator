@@ -69,6 +69,7 @@ export const getOrders = async (admin: any) => {
               firstName
             }
             createdAt
+            fullyPaid
           }
         }
       }

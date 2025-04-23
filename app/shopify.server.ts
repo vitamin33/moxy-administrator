@@ -67,9 +67,13 @@ export const getOrders = async (admin: any) => {
             }
             customer {
               firstName
+              lastName
             }
             createdAt
             fullyPaid
+            shippingAddress {
+              city
+            }
           }
         }
       }

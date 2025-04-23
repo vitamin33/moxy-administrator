@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher, Link } from "@remix-run/react";
 import { authenticate, getOrders } from "../shopify.server";
-import { Page, Card, Button, IndexTable, useIndexResourceState, Badge } from "@shopify/polaris";
+import { Page, Card, Button, Text, IndexTable, useIndexResourceState, Badge } from "@shopify/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -17,35 +17,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: LoaderFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
-  const formData = await request.formData();
-  const orderIds = JSON.parse(formData.get("orderIds") as string);
 
-  for (const id of orderIds) {
-    const response = await admin.graphql(
-      `mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
-        orderMarkAsPaid(input: $input) {
-          order {
-            id
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }`,
-      {
-        variables: {
-          input: {
-            id,
-          },
-        },
-      }
-    );
-  }
-
-  return new Response(JSON.stringify({ status: "done"}), {
-    status: 200,
-  });
+  return null;
 }
 
 export default function OrdersPage() {
@@ -66,12 +39,15 @@ export default function OrdersPage() {
     (order: {
       id: string;
       name: string;
-      customer?: { firstName: string };
+      customer?: { firstName: string; lastName: string };
       totalPriceSet: {
         presentmentMoney: { amount: string; currencyCode: string };
       };
       createdAt: string;
       fullyPaid: boolean;
+      shippingAddress?: {
+        city: string;
+      };
       index: number
     }) => (
       <IndexTable.Row
@@ -81,16 +57,24 @@ export default function OrdersPage() {
         position={order.index}
       >
         <IndexTable.Cell>{order.name}</IndexTable.Cell>
-        <IndexTable.Cell>{order.customer?.firstName || "Guest"}</IndexTable.Cell>
-        <IndexTable.Cell>{order.totalPriceSet.presentmentMoney.amount} {order.totalPriceSet.presentmentMoney.currencyCode}</IndexTable.Cell>
-        <IndexTable.Cell>{order.createdAt}</IndexTable.Cell>
+        <IndexTable.Cell>{order.customer?.firstName || "Guest"} {order.customer?.lastName}</IndexTable.Cell> 
+        <IndexTable.Cell>
+          <Text as="p" alignment="end">
+            {order.totalPriceSet.presentmentMoney.amount} {order.totalPriceSet.presentmentMoney.currencyCode}
+          </Text>
+        </IndexTable.Cell>
         <IndexTable.Cell>
           <Badge 
             progress={order.fullyPaid? "complete" : "incomplete"} 
-            tone={order.fullyPaid? "success" : "attention"}
+            tone={order.fullyPaid? "new" : "warning"}
           >
-            {order.fullyPaid? "Paid" : "Not Paid"}
+            {order.fullyPaid? "Paid" : "Pending"}
           </Badge>
+        </IndexTable.Cell>
+        <IndexTable.Cell>{order.createdAt}</IndexTable.Cell>
+        <IndexTable.Cell>{order.shippingAddress?.city}</IndexTable.Cell>
+        <IndexTable.Cell>
+          <Text as="p" alignment="end">4</Text>
         </IndexTable.Cell>
       </IndexTable.Row>
     ),
@@ -101,15 +85,21 @@ export default function OrdersPage() {
         content: 'Mark As Paid',
         onAction: () => {
           fetcher.submit(
-            { orderIds: JSON.stringify(selectedResources) },
-            {
-              method: "post",
-              action: "/app/orders",
-              encType: "application/x-www-form-urlencoded",
-            }
+            { orders: selectedResources },
+            { method: "patch", action: "/app/orders"}
           );
         }
       },
+      {
+        content: 'Delete',
+        destructive: true,
+        onAction: () => {
+          fetcher.submit(
+            { orders: selectedResources },
+            { method: "delete", action: "/app/orders"}
+          );
+        }
+      }
     ];
 
     return (
@@ -120,14 +110,6 @@ export default function OrdersPage() {
             <Button variant="primary">Create Order</Button>
           </Link>        
         }
-        secondaryActions={[
-          {
-            content: fetcher.state === "loading" ? "Refreshing..." : "Refresh",
-            onAction: () => {
-              fetcher.load("/app/orders");
-            }
-          }
-        ]}
       >
       <Card>
         <IndexTable
@@ -140,9 +122,11 @@ export default function OrdersPage() {
             headings={[
               {title: 'Order'},
               {title: 'Customer'},
-              {title: 'Total'},
-              {title: 'Date'},
+              {title: 'Total', alignment: 'end'},
               {title: 'Payment status'},
+              {title: 'Date'},
+              {title: 'City'},
+              {title: 'Nova Poshta number', alignment: 'end'}
             ]}
             promotedBulkActions={promotedBulkActions}
           >

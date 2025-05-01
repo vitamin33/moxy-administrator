@@ -16,16 +16,50 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: LoaderFunctionArgs) => {
+  const { authenticate } = await import("../shopify.server");
   const { admin } = await authenticate.admin(request);
+  const method = request.method;
+  const data = await request.formData();
+  const orders = JSON.parse(data.get("orders") as string);
 
-  return null;
+  console.log(method);
+
+  if(method == "post") {
+  for (const id of orders) {
+    const response = await admin.graphql(
+      `mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
+        orderMarkAsPaid(input: $input) {
+          order {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          input: {
+            id,
+          },
+        },
+      }
+    );
+  }
+  }
+  
+
+  return new Response(JSON.stringify({ status: "done" }), {
+    status: 200,
+  });
 }
 
 export default function OrdersPage() {
   const { orders } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
 
-  console.log("Client orders:", orders);
+  //console.log("Client orders:", orders);
 
   const resourceName = {
     singular: 'order',
@@ -85,8 +119,8 @@ export default function OrdersPage() {
         content: 'Mark As Paid',
         onAction: () => {
           fetcher.submit(
-            { orders: selectedResources },
-            { method: "patch", action: "/app/orders"}
+            { orders: JSON.stringify(selectedResources) },
+            { method: "post", action: "/app/orders" }
           );
         }
       },
@@ -95,8 +129,8 @@ export default function OrdersPage() {
         destructive: true,
         onAction: () => {
           fetcher.submit(
-            { orders: selectedResources },
-            { method: "delete", action: "/app/orders"}
+            { orders: JSON.stringify(selectedResources) },
+            { method: "delete", action: "/app/orders" }
           );
         }
       }

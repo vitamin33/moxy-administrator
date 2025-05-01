@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "0b253bf4b4ab833bca350474eb8ea6db"
-application_url = "https://angel-determining-sells-roof.trycloudflare.com"
+application_url = "https://dark-broadcasting-seattle-trauma.trycloudflare.com"
 embedded = true
 name = "moxy-administrator"
 handle = "moxy-administrator"
@@ -28,9 +28,9 @@ scopes = "read_customers,read_discounts,read_fulfillments,read_orders,read_produ
 
 [auth]
 redirect_urls = [
-  "https://angel-determining-sells-roof.trycloudflare.com/auth/callback",
-  "https://angel-determining-sells-roof.trycloudflare.com/auth/shopify/callback",
-  "https://angel-determining-sells-roof.trycloudflare.com/api/auth/callback"
+  "https://dark-broadcasting-seattle-trauma.trycloudflare.com/auth/callback",
+  "https://dark-broadcasting-seattle-trauma.trycloudflare.com/auth/shopify/callback",
+  "https://dark-broadcasting-seattle-trauma.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

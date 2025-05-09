@@ -1,7 +1,8 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useFetcher, Link } from "@remix-run/react";
+import { useLoaderData, useFetcher, Link, Outlet } from "@remix-run/react";
 import { authenticate, getOrders } from "../shopify.server";
 import { Page, Card, Button, Text, IndexTable, useIndexResourceState, Badge } from "@shopify/polaris";
+import { format } from "date-fns";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -16,43 +17,65 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: LoaderFunctionArgs) => {
-  const { authenticate } = await import("../shopify.server");
   const { admin } = await authenticate.admin(request);
   const method = request.method;
   const data = await request.formData();
   const orders = JSON.parse(data.get("orders") as string);
 
-  console.log(method);
+  switch (method) {
+    case "POST":
+      for (const id of orders) {
+        const response = await admin.graphql(
+          `mutation orderMarkAsPaid($orderId: ID!) {
+            orderMarkAsPaid(orderId: $orderId) {
+              order { id }
+              userErrors {
+                field
+                message
+              }
+            }
+          }`,
+          {
+            variables: {
+              "orderId": id
+            },
+          }
+        );
 
-  if(method == "post") {
-  for (const id of orders) {
-    const response = await admin.graphql(
-      `mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
-        orderMarkAsPaid(input: $input) {
-          order {
-            id
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }`,
-      {
-        variables: {
-          input: {
-            id,
-          },
-        },
+        console.log("Selected orders marked as paid response:", response);
       }
-    );
-  }
-  }
-  
+      break;
 
-  return new Response(JSON.stringify({ status: "done" }), {
-    status: 200,
-  });
+    case "DELETE":
+      for (const id of orders) {
+        const response = await admin.graphql(
+          `mutation OrderDelete($orderId: ID!) {
+            orderDelete(orderId: $orderId) {
+              deletedId
+              userErrors {
+                field
+                message
+                code
+              }
+            }
+          }`,
+          {
+            variables: {
+              "orderId": id
+            },
+          },
+        );
+
+        console.log("Delete order response:", response);
+      }
+      break;
+
+    default:
+      console.warn("Unsupported method:", method);
+      return new Response("Method not allowed", { status: 405 });
+  }
+
+  return new Response(JSON.stringify({ status: "Success" }), { status: 200 });
 }
 
 export default function OrdersPage() {
@@ -79,11 +102,11 @@ export default function OrdersPage() {
       };
       createdAt: string;
       fullyPaid: boolean;
-      shippingAddress?: {
-        city: string;
-      };
       index: number
-    }) => (
+    }) => {
+      const formatted = format(new Date(order.createdAt), 'MMM d, yyyy, HH:mm');
+
+      return (
       <IndexTable.Row
         id={order.id}
         key={order.id}
@@ -105,13 +128,13 @@ export default function OrdersPage() {
             {order.fullyPaid? "Paid" : "Pending"}
           </Badge>
         </IndexTable.Cell>
-        <IndexTable.Cell>{order.createdAt}</IndexTable.Cell>
-        <IndexTable.Cell>{order.shippingAddress?.city}</IndexTable.Cell>
+        <IndexTable.Cell>{ formatted }</IndexTable.Cell>
+        <IndexTable.Cell>City</IndexTable.Cell>
         <IndexTable.Cell>
           <Text as="p" alignment="end">4</Text>
         </IndexTable.Cell>
       </IndexTable.Row>
-    ),
+    )}
   );
   
     const promotedBulkActions = [

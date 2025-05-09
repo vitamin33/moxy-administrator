@@ -71,9 +71,6 @@ export const getOrders = async (admin: any) => {
             }
             createdAt
             fullyPaid
-            shippingAddress {
-              city
-            }
           }
         }
       }

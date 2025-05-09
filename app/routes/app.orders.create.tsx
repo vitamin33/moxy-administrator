@@ -9,6 +9,14 @@ import {
   Select,
   Button,
 } from "@shopify/polaris";
+import { LoaderFunctionArgs } from "@remix-run/node";
+import { authenticate } from "app/shopify.server";
+
+export const action = async ({request}: LoaderFunctionArgs) => {
+  const { admin } = await authenticate.admin(request);
+
+  return new Response(JSON.stringify({ status: "Success" }), { status: 200 });
+}
 
 export default function CreateOrderPage() {
   const fetcher = useFetcher();
